@@ -216,13 +216,18 @@ elif page == "🌱 Crop Water Guide":
     # The calculation button and results section (which was moved to Supply Planner)
     # The 'Predict Water Needs' button was previously here in your code.
 
-
 # ----------------------------
 # 3. FARM SETUP & PLOTS (New Tab Logic)
 # ----------------------------
 elif page == "🏡 Farm Setup & Plots":
     st.title("🏡 My Farm & Plot Management")
     st.markdown("Define your land plots and select which one you are actively managing for water calculation.")
+
+    # --- Initialize session state variables if missing ---
+    if "plots_data" not in st.session_state:
+        st.session_state["plots_data"] = {}
+    if "active_plot_id" not in st.session_state:
+        st.session_state["active_plot_id"] = None
 
     # --- Add New Plot Form ---
     with st.form("new_plot_form"):
@@ -231,14 +236,14 @@ elif page == "🏡 Farm Setup & Plots":
         with colF1:
             plot_name = st.text_input("Plot Name (e.g., 'Main Field 2024')")
         with colF2:
-            plot_crop = st.selectbox("Crop Type", list(crop_options_detailed.keys())) # Only predefined crops for accuracy
+            plot_crop = st.selectbox("Crop Type", list(crop_options_detailed.keys()))  # Only predefined crops for accuracy
         with colF3:
             plot_acres = st.number_input("Acres", min_value=0.1, value=1.0)
         
         add_plot_button = st.form_submit_button("Save Plot")
         
         if add_plot_button and plot_name and plot_crop:
-            plot_id = str(uuid.uuid4()) # Generate a unique ID
+            plot_id = str(uuid.uuid4())  # Generate a unique ID
             st.session_state["plots_data"][plot_id] = {
                 "id": plot_id,
                 "name": plot_name,
@@ -266,8 +271,11 @@ elif page == "🏡 Farm Setup & Plots":
             is_active = st.session_state.get("active_plot_id") == plot['id']
             if colP4.button("✅ Active" if is_active else "Set Active", key=f"activate_{plot['id']}"):
                 st.session_state["active_plot_id"] = plot['id']
-                st.experimental_rerun()
-
+                # Compatible rerun for all Streamlit versions
+                if hasattr(st, "rerun"):
+                    st.rerun()
+                else:
+                    st.experimental_rerun()
 
     st.markdown("---")
     st.subheader("Current Active Plot Status")
