@@ -285,7 +285,6 @@ elif page == "🏡 Farm Setup & Plots":
     else:
         st.warning("No active plot selected. Please select one to use the full **Crop Water Guide** features.")
 
-
 # ----------------------------
 # 4. SUPPLY PLANNER (Moved functionality here)
 # ----------------------------
@@ -300,13 +299,14 @@ elif page == "💧 Supply Planner":
     else:
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
         crop_data = crop_options_detailed.get(active_plot['crop_type'])
+        crop_name = active_plot['crop_type']  # ✅ Define crop_name properly
 
         if not crop_data:
-            st.error(f"Cannot calculate supply plan for {active_plot['crop_type']}. Only predefined crops are supported for seasonal planning.")
+            st.error(f"Cannot calculate supply plan for {crop_name}. Only predefined crops are supported for seasonal planning.")
         else:
-            st.info(f"Planning for Active Plot: **{active_plot['name']}** ({active_plot['acres']} acres of {active_plot['crop_type']})")
+            st.info(f"Planning for Active Plot: **{active_plot['name']}** ({active_plot['acres']} acres of {crop_name})")
 
-            # Inputs required for the calculation that were in your original code
+            # Inputs required for the calculation
             colSP1, colSP2 = st.columns(2)
             with colSP1:
                 sp_eto_daily_avg = st.number_input("Average daily ETo (mm/day) for Season", value=st.session_state["eto_value_input"])
@@ -332,7 +332,9 @@ elif page == "💧 Supply Planner":
                 colR2.metric("Avg Daily Need (Liters/day)", f"{total_water_liters / total_days:,.0f} L/day")
                 colR3.metric("Gross Irrigation (mm/season)", f"{total_gross_irrigation_mm:,.1f} mm")
                 
+                # ✅ Fixed variable name
                 st.success(f"Estimated water needed for {crop_name} over the entire season: {total_water_liters:,.0f} Liters.")
+
 
 # ----------------------------
 # 5. REMAINING TABS
