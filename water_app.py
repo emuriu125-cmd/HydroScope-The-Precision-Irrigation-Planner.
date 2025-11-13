@@ -239,19 +239,26 @@ elif page == "🏡 Farm Setup & Plots":
         st.info("No plots yet. Add one above.")
     else:
         st.button("🧹 Clear All Plots", on_click=clear_all_plots)
+        # Reduced from 5 columns to 3 columns to make the display more compact
         for plot_id, plot in st.session_state["plots_data"].items():
             is_active = (st.session_state["active_plot_id"] == plot_id)
             status = "✅ Active" if is_active else "❌ Inactive"
-            col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns(5)
+            
+            # Use 3 columns instead of 5
+            col_d1, col_d2, col_d3 = st.columns(3)
+            
             col_d1.metric("Name", plot["name"])
-            col_d2.metric("Acres", plot["acres"])
-            col_d3.metric("Crop", plot["crop_type"])
-            col_d4.metric("Status", status)
-            with col_d5:
+            # Combined acres and crop type into a single column's metric
+            col_d2.metric("Details", f"{plot['acres']} acres | {plot['crop_type']}")
+            
+            with col_d3:
+                # Placed buttons in the final column, using smaller 'st.button' calls
+                st.markdown(f"**Status:** {status}")
                 if is_active:
                     st.button("Deactivate", key=f"deact_{plot_id}", on_click=deactivate_plot)
                 else:
                     st.button("Activate", key=f"act_{plot_id}", on_click=set_active_plot, args=(plot_id,))
+                # Moved the delete button inline as well
                 st.button("Delete", key=f"del_{plot_id}", on_click=delete_plot, args=(plot_id,))
 
 # ----------------------------
