@@ -154,7 +154,7 @@ if page == "🌤️ Weather Guide":
 
         if st.button("🧹 Clear Weather Log"):
             st.session_state["weather_log_data"] = pd.DataFrame(columns=["Date", "Temperature (°C)", "Rainfall (mm)", "ETo (mm/day)"])
-
+            
 # ----------------------------
 # 2. CROP WATER GUIDE
 # ----------------------------
@@ -199,22 +199,25 @@ elif page == "🌱 Crop Water Guide":
     col3, col4 = st.columns(2)
     with col3:
         st.session_state["efficiency_percent_cw"] = st.number_input("Irrigation Efficiency (%)", value=st.session_state["efficiency_percent_cw"], min_value=1, max_value=100)
-    st.session_state["display_supply_results"] = True
-     st.session_state["c_source_type"] = st.selectbox(
+        # Correctly indented line:
+        st.session_state["c_source_type"] = st.selectbox(
             "Water Source Type",
             options=["Tank", "Pipes", "Pump"],
             index=["Tank", "Pipes", "Pump"].index(st.session_state["c_source_type"] or "Pump")
         )
+    # Note: the line below was duplicated in your input, removed here:
+    # st.session_state["display_supply_results"] = True 
+
     st.session_state["display_supply_results"] = True
 
     with st.expander("📱 Need Help Getting These Values?"):
         st.markdown("""
-        - 🌤️ **ETo:** Use [FAO ETo Calculator](https://www.fao.org/land-water/databases-and-software/eto-calculator/en/)  
-        - 🌾 **Kc Values:** Try **FAO CropWat mobile app**  
-        - ☔ **Rainfall:** Use **RainViewer** or **AccuWeather**  
-        - 💧 **Efficiency:** 75–85% for drip, 60–70% for sprinkler  
+        - 🌤️ **ETo:** Use [FAO ETo Calculator](https://www.fao.org/land-water/databases-and-software/eto-calculator/en/)
+        - 🌾 **Kc Values:** Try **FAO CropWat mobile app**
+        - ☔ **Rainfall:** Use **RainViewer** or **AccuWeather**
+        - 💧 **Efficiency:** 75–85% for drip, 60–70% for sprinkler
         """)
-
+        
 # ----------------------------
 # 3. FARM SETUP & PLOTS
 # ----------------------------
