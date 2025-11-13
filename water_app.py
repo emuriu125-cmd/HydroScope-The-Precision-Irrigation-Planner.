@@ -200,9 +200,6 @@ elif page == "🌱 Crop Water Guide":
     with col3:
         st.session_state["efficiency_percent_cw"] = st.number_input("Irrigation Efficiency (%)", value=st.session_state["efficiency_percent_cw"], min_value=1, max_value=100)
         st.session_state["c_source_cap"] = st.number_input("Source Capacity (Liters/hour)", min_value=1.0, value=st.session_state["c_source_cap"])
-    with col4:
-        st.session_state["c_source_type"] = st.selectbox("Water Source", ["Pump", "Tank/Other"], index=["Pump", "Tank/Other"].index(st.session_state["c_source_type"]))
-
     st.session_state["display_supply_results"] = True
 
     with st.expander("📱 Need Help Getting These Values?"):
