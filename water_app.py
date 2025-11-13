@@ -18,7 +18,7 @@ if "weather_log_data" not in st.session_state: st.session_state["weather_log_dat
 if "eto_value_input" not in st.session_state: st.session_state["eto_value_input"] = 5.0
 if "plots_data" not in st.session_state: st.session_state["plots_data"] = {} # Stores all plots
 if "active_plot_id" not in st.session_state: st.session_state["active_plot_id"] = None # Stores the ID of the currently active plot
-
+if "saved_supply_plan_data" not in st.session_state: st.session_state["saved_supply_plan_data"] = None # Stores temporary data for Supply Planner
 
 # ----------------------------
 # CROP DATA AND FUNCTIONS
@@ -71,10 +71,24 @@ def calculate_stage_based_water(acres, avg_daily_eto, effective_rain_weekly, eff
     total_water_liters = total_gross_irrigation_mm * area_sq_meters
     return total_water_liters, total_gross_irrigation_mm
 
+# Helper functions for plots
+def set_active_plot(plot_id):
+    st.session_state["active_plot_id"] = plot_id
+
+def delete_plot(plot_id):
+    if plot_id in st.session_state["plots_data"]:
+        del st.session_state["plots_data"][plot_id]
+    if st.session_state["active_plot_id"] == plot_id:
+        st.session_state["active_plot_id"] = None
+
+def deactivate_plot():
+    st.session_state["active_plot_id"] = None
+
 # ----------------------------
 # SIDEBAR (Revised Order)
 # ----------------------------
 st.sidebar.title("⚙️ HydroScope Controls")
+# Use a key to manage the radio state persistently, even if the user is nudged by a button click (though buttons won't change the sidebar radio directly)
 page = st.sidebar.radio("Navigate", [
     "🌤️ Weather Guide", 
     "🌱 Crop Water Guide", 
@@ -82,7 +96,7 @@ page = st.sidebar.radio("Navigate", [
     "💧 Supply Planner", 
     "subscription", 
     "About"
-])
+], key="main_navigation")
 
 # ----------------------------
 # 1. WEATHER & EVAPORATION GUIDE 
@@ -156,7 +170,7 @@ if page == "🌤️ Weather Guide":
         """)
 
 # ----------------------------
-# 2. CROP WATER GUIDE (Updated with Kc & Season Length, stacked layout)
+# 2. CROP WATER GUIDE 
 # ----------------------------
 elif page == "🌱 Crop Water Guide":
     st.title("🌱 Crop Water Calculator (Realistic FAO CROPWAT)")
@@ -167,189 +181,163 @@ elif page == "🌱 Crop Water Guide":
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
         st.info(f"Using Active Plot: **{active_plot['name']}** ({active_plot['acres']} acres of {active_plot['crop_type']})")
         
-        selected_crop = active_plot['crop_type']
-        acres = active_plot['acres']
-        crop_name = selected_crop
-
-        total_days = sum(crop_options_detailed[selected_crop]["Duration_Days"].values())
-        growth_weeks = round(total_days / 7, 1)
-        st.markdown(f"**Growth Period (weeks):** {growth_weeks} (Fixed)")
-
-        # --- Grid layout: 2x2 for the top inputs ---
-        col_left, col_right = st.columns(2)
-        with col_left:
-            eto_daily_avg = st.number_input("Average daily ETo (mm/day)", value=st.session_state["eto_value_input"])
-            avg_kc = st.number_input("Average Crop Coefficient (Kc)", 0.1, 3.0, 1.0)
-        with col_right:
-            effective_rain_weekly = st.number_input("Avg Effective Rainfall (mm/week)", value=10.0)
-            season_length_days = st.number_input("Season Length (days)", 1, 365, total_days)
-
-        # --- Efficiency slider below ---
-        efficiency = st.slider("Irrigation Efficiency (%)", 10, 100, 75)
-
+        selected_crop_name = active_plot['crop_type']
+        default_acres = active_plot['acres']
+        # If crop type is 'Other / Custom Crop', disable the calculate button until custom data is entered (logic needed)
     else:
-        # Fallback to manual selection if no active plot is set
-        st.warning("No active plot selected. Please set up and select a plot in the 'Farm Setup & Plots' tab, or use manual inputs below.")
-        col_crop, col_growth, col_size = st.columns(3)
-        selected_crop = col_crop.selectbox("Choose Crop", list(crop_options_detailed.keys()) + ["Other / Custom Crop"])
+        st.info("No active plot selected. Using manual inputs below.")
+        selected_crop_name = None
+        default_acres = 1.0
 
-        if selected_crop == "Other / Custom Crop":
-            st.warning("Stage-based calculation is only available for predefined crops for maximum accuracy.")
-            crop_name = st.text_input("Enter crop name", "Custom Crop")
-            avg_kc_default = st.number_input("Set average Kc", 0.1, 3.0, 1.0)
-            growth_weeks = col_growth.number_input("Growth period (weeks)", 1, 52, 12)
-            season_length_days_default = growth_weeks * 7
+    with st.form(key='water_calc_form'):
+        colC1, colC2 = st.columns(2)
+        with colC1:
+            if st.session_state.get("active_plot_id"):
+                # Display active plot details, don't allow editing here if active plot is used
+                acres = st.number_input("Acres", value=default_acres, disabled=True)
+                crop_selection = st.selectbox("Select Crop Type", options=[selected_crop_name], disabled=True)
+            else:
+                # Manual inputs enabled
+                acres = st.number_input("Acres", value=default_acres, min_value=0.1, step=0.1)
+                crop_selection = st.selectbox("Select Crop Type", options=list(crop_options_detailed.keys()))
+        
+        with colC2:
+            avg_daily_eto = st.number_input("Avg Daily ETo (mm/day)", value=st.session_state["eto_value_input"], min_value=0.1, step=0.1)
+            effective_rain_weekly = st.number_input("Avg Effective Rain (mm/week)", value=0.0, min_value=0.0, step=1.0)
+            efficiency_percent = st.number_input("Irrigation Efficiency (%)", value=80, min_value=1, max_value=100, step=1)
+        
+        calculate_btn = st.form_submit_button("💧 Calculate Water Needs")
+
+    if calculate_btn:
+        crop_data = crop_options_detailed.get(crop_selection)
+        if crop_data and crop_data["Duration_Days"]:
+            total_water_liters, total_gross_irrigation_mm = calculate_stage_based_water(acres, avg_daily_eto, effective_rain_weekly, efficiency_percent, crop_data)
+            
+            st.subheader(f"Total Water Required for {crop_selection} over full cycle:")
+            st.success(f"{total_water_liters:,.0f} Liters ({total_water_liters / 1000:.1f} m³)")
+            st.markdown(f"*(Gross Irrigation requirement: {total_gross_irrigation_mm:.1f} mm)*")
+
+            # --- Save results to session state for the Supply Planner ---
+            st.session_state["saved_supply_plan_data"] = {
+                "total_water_liters": total_water_liters,
+                "total_gross_irrigation_mm": total_gross_irrigation_mm,
+                "acres_used": acres,
+                "crop_name": crop_selection,
+                "eto_value": avg_daily_eto,
+                "efficiency": efficiency_percent
+            }
+
+            st.markdown("---")
+            if st.button("Use these results in the Supply Planner"):
+                # This doesn't change the sidebar radio visually but saves the data for the next page view
+                st.session_state["main_navigation"] = "💧 Supply Planner"
+                st.rerun() # Rerun the script to jump to the supply planner page using the updated session state
+            
         else:
-            crop_name = selected_crop
-            total_days = sum(crop_options_detailed[selected_crop]["Duration_Days"].values())
-            growth_weeks = round(total_days / 7, 1)
-            col_growth.markdown(f"**Growth Period (weeks):** {growth_weeks} (Fixed)")
-            avg_kc_default = sum(crop_options_detailed[selected_crop]["Kc_Values"].values()) / len(crop_options_detailed[selected_crop]["Kc_Values"])
-            season_length_days_default = total_days
-
-        acres = col_size.number_input("Farm size (acres)", 0.1, 1000.0, 5.0)
-
-        # --- Grid layout: 2x2 for the top inputs ---
-        col_left, col_right = st.columns(2)
-        with col_left:
-            eto_daily_avg = st.number_input("Average daily ETo (mm/day)", value=st.session_state["eto_value_input"])
-            avg_kc = st.number_input("Average Crop Coefficient (Kc)", 0.1, 3.0, avg_kc_default)
-        with col_right:
-            effective_rain_weekly = st.number_input("Avg Effective Rainfall (mm/week)", value=10.0)
-            season_length_days = st.number_input("Season Length (days)", 1, 365, season_length_days_default)
-
-        # --- Efficiency slider below ---
-        efficiency = st.slider("Irrigation Efficiency (%)", 10, 100, 75)
-
+            st.warning("Please select a valid crop type or ensure custom crop data is handled.")
 
 # ----------------------------
-# 3. FARM SETUP & PLOTS (New Tab Logic)
+# 3. FARM SETUP & PLOTS (Revised with Deactivate Button)
 # ----------------------------
 elif page == "🏡 Farm Setup & Plots":
-    st.title("🏡 My Farm & Plot Management")
-    st.markdown("Define your land plots and select which one you are actively managing for water calculation.")
+    st.title("🏡 Farm Setup & Plots Management")
 
-    # --- Initialize session state variables if missing ---
-    if "plots_data" not in st.session_state:
-        st.session_state["plots_data"] = {}
-    if "active_plot_id" not in st.session_state:
-        st.session_state["active_plot_id"] = None
-
-    # --- Add New Plot Form ---
-    with st.form("new_plot_form"):
-        st.subheader("➕ Add New Plot")
-        colF1, colF2, colF3 = st.columns(3)
-        with colF1:
-            plot_name = st.text_input("Plot Name (e.g., 'Main Field 2024')")
-        with colF2:
-            plot_crop = st.selectbox("Crop Type", list(crop_options_detailed.keys()))  # Only predefined crops for accuracy
-        with colF3:
+    with st.form(key='new_plot_form'):
+        st.subheader("Add a New Plot")
+        colP1, colP2, colP3 = st.columns(3)
+        with colP1:
+            plot_name = st.text_input("Plot Name (e.g., 'Field 1')", value=f"Plot {len(st.session_state['plots_data']) + 1}")
+        with colP2:
             plot_acres = st.number_input("Acres", min_value=0.1, value=1.0)
-        
-        add_plot_button = st.form_submit_button("Save Plot")
-        
-        if add_plot_button and plot_name and plot_crop:
-            plot_id = str(uuid.uuid4())  # Generate a unique ID
-            st.session_state["plots_data"][plot_id] = {
-                "id": plot_id,
-                "name": plot_name,
-                "crop_type": plot_crop,
-                "acres": plot_acres
-            }
-            st.success(f"Plot '{plot_name}' added successfully!")
+        with colP3:
+            plot_crop = st.selectbox("Crop Type", options=list(crop_options_detailed.keys()))
+            
+        add_plot_btn = st.form_submit_button("➕ Save New Plot")
 
-    st.markdown("---")
+    if add_plot_btn:
+        new_plot_id = str(uuid.uuid4())
+        st.session_state["plots_data"][new_plot_id] = {
+            "id": new_plot_id,
+            "name": plot_name,
+            "acres": plot_acres,
+            "crop_type": plot_crop
+        }
+        st.success(f"Plot '{plot_name}' saved!")
 
-    # --- Display Existing Plots ---
-    st.subheader("📋 Existing Plots")
-
+    st.subheader("Your Plots")
     if not st.session_state["plots_data"]:
         st.info("You have no plots saved yet. Use the form above to add one.")
     else:
-        plots_list = list(st.session_state["plots_data"].values())
-        
-        for plot in plots_list:
-            colP1, colP2, colP3, colP4 = st.columns(4)
-            colP1.write(f"**{plot['name']}**")
-            colP2.write(f"{plot['acres']} acres")
-            colP3.write(f"{plot['crop_type']}")
-
-            is_active = st.session_state.get("active_plot_id") == plot['id']
-            if colP4.button("✅ Active" if is_active else "Set Active", key=f"activate_{plot['id']}"):
-                st.session_state["active_plot_id"] = plot['id']
-                # Compatible rerun for all Streamlit versions
-                if hasattr(st, "rerun"):
-                    st.rerun()
-                else:
-                    st.experimental_rerun()
-
-    st.markdown("---")
-    st.subheader("Current Active Plot Status")
-    if st.session_state.get("active_plot_id"):
-        active_plot_info = st.session_state["plots_data"][st.session_state["active_plot_id"]]
-        st.success(f"Active Plot is set to: **{active_plot_info['name']}** ({active_plot_info['acres']} acres of {active_plot_info['crop_type']})")
-    else:
-        st.warning("No active plot selected. Please select one to use the full **Crop Water Guide** features.")
-
-# ----------------------------
-# 4. SUPPLY PLANNER (Moved functionality here)
-# ----------------------------
-
-elif page == "💧 Supply Planner":
-    st.title("💧 Seasonal Water Supply Planner")
-    st.markdown("Calculate total estimated water needs for the entire crop season based on the active plot.")
-
-    # Check if an active plot is selected
-    if not st.session_state.get("active_plot_id"):
-        st.warning("Please select an active plot in the 'Farm Setup & Plots' tab first.")
-    else:
-        active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
-        crop_data = crop_options_detailed.get(active_plot['crop_type'])
-        crop_name = active_plot['crop_type']  # ✅ Define crop_name properly
-
-        if not crop_data:
-            st.error(f"Cannot calculate supply plan for {crop_name}. Only predefined crops are supported for seasonal planning.")
-        else:
-            st.info(f"Planning for Active Plot: **{active_plot['name']}** ({active_plot['acres']} acres of {crop_name})")
-
-            # Inputs required for the calculation
-            colSP1, colSP2 = st.columns(2)
-            with colSP1:
-                sp_eto_daily_avg = st.number_input("Average daily ETo (mm/day) for Season", value=st.session_state["eto_value_input"])
-            with colSP2:
-                sp_efficiency = st.slider("Irrigation Efficiency (%)", 10, 100, 75)
+        # Display existing plots with activate/delete buttons
+        for plot_id, plot_details in st.session_state["plots_data"].items():
+            is_active = (st.session_state["active_plot_id"] == plot_id)
+            status = "✅ Active" if is_active else "❌ Inactive"
             
-            sp_effective_rain_weekly = st.number_input("Avg Effective Rainfall (mm/week) for Season", value=10.0)
-
-            if st.button("Calculate Seasonal Water Need"):
-                total_water_liters, total_gross_irrigation_mm = calculate_stage_based_water(
-                    active_plot['acres'], 
-                    sp_eto_daily_avg, 
-                    sp_effective_rain_weekly, 
-                    sp_efficiency, 
-                    crop_data
-                )
+            col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns([2, 1, 1, 1, 1])
+            col_d1.metric("Name", plot_details["name"])
+            col_d2.metric("Acres", plot_details["acres"])
+            col_d3.metric("Crop", plot_details["crop_type"])
+            col_d4.metric("Status", status)
+            
+            with col_d5:
+                # Add activate/deactivate functionality
+                if is_active:
+                    st.button("Deactivate", key=f"deact_{plot_id}", on_click=deactivate_plot)
+                else:
+                    st.button("Activate", key=f"act_{plot_id}", on_click=set_active_plot, args=(plot_id,))
                 
-                total_days = sum(crop_data["Duration_Days"].values())
-
-                st.subheader("Results Overview")
-                colR1, colR2, colR3 = st.columns(3)
-                colR1.metric("Total Water Needed (Liters)", f"{total_water_liters:,.0f} L")
-                colR2.metric("Avg Daily Need (Liters/day)", f"{total_water_liters / total_days:,.0f} L/day")
-                colR3.metric("Gross Irrigation (mm/season)", f"{total_gross_irrigation_mm:,.1f} mm")
-                
-                # ✅ Fixed variable name
-                st.success(f"Estimated water needed for {crop_name} over the entire season: {total_water_liters:,.0f} Liters.")
-
+                st.button("Delete", key=f"del_{plot_id}", on_click=delete_plot, args=(plot_id,))
+            st.markdown("---")
 
 # ----------------------------
-# 5. REMAINING TABS
+# 4. SUPPLY PLANNER (New page logic to use saved data)
 # ----------------------------
+elif page == "💧 Supply Planner":
+    st.title("💧 Water Supply Planner")
+    st.markdown("Plan your irrigation logistics based on calculated water needs.")
+    
+    # Check if data was transferred from the Crop Water Guide
+    if st.session_state.get("saved_supply_plan_data"):
+        data = st.session_state["saved_supply_plan_data"]
+        st.subheader(f"Using Data from Crop Guide: {data['crop_name']} ({data['acres_used']} acres)")
+        
+        # Use the saved values as default inputs for the supply planner logic
+        total_water_needed_liters = data["total_water_liters"]
+        st.metric("Total Water Requirement Loaded", f"{total_water_needed_liters:,.0f} Liters")
+        
+        st.markdown("---")
+        
+        # Example supply planning logic
+        st.subheader("Plan your supply logistics")
+        
+        colS1, colS2 = st.columns(2)
+        with colS1:
+            source_capacity_lph = st.number_input("Water source/pump capacity (Liters/hour)", min_value=1.0, value=1000.0)
+        with colS2:
+            # Assume a number of days to apply the full amount is needed (e.g. 7 days for a weekly cycle planning)
+            days_to_apply = st.number_input("Number of days for this cycle", min_value=1, value=7)
+        
+        if source_capacity_lph > 0 and days_to_apply > 0:
+            total_hours_needed = total_water_needed_liters / source_capacity_lph
+            hours_per_day = total_hours_needed / days_to_apply
+            
+            st.success(f"You need to run your pump for approximately **{hours_per_day:.1f} hours per day** over {days_to_apply} days to meet the crop's total water requirement.")
+        
+    else:
+        st.info("No saved crop water data found. Please calculate water needs in the **🌱 Crop Water Guide** first.")
+        # Provide manual inputs if no data is present
+        st.number_input("Enter manual total water needed (Liters):", value=0.0)
 
-elif page == "Payment":
-    st.title("💰 Subscription payment")
-    st.info("Coming Soon")
+# ----------------------------
+# 5. SUBSCRIPTION PAGE (Placeholder)
+# ----------------------------
+elif page == "subscription":
+    st.title("Upgrade Your Plan")
+    st.markdown("This is where subscription details would go.")
 
+# ----------------------------
+# 6. ABOUT PAGE (Placeholder)
+# ----------------------------
 elif page == "About":
-    st.title("ℹ️ About HydroScope")
-    st.markdown("HydroScope is dedicated to providing precision water management tools for Kenyan farmers.")
+    st.title("About HydroScope")
+    st.markdown("HydroScope helps farmers manage water use efficiently using FAO guidelines.")
