@@ -268,6 +268,10 @@ elif page == "💧 Supply Planner":
     st.title("💧 Water Supply Planner")
     st.button("🔄 Recalculate Plan", on_click=lambda: st.session_state.update(display_supply_results=True))
 
+    # ✅ Ensure manual_acres and crop_selection_cw exist before using them
+    st.session_state.setdefault("manual_acres", 1.0)
+    st.session_state.setdefault("crop_selection_cw", "Maize")
+
     if st.session_state.get("active_plot_id") and st.session_state["active_plot_id"] in st.session_state["plots_data"]:
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
         acres, crop_name = active_plot["acres"], active_plot["crop_type"]
@@ -275,12 +279,12 @@ elif page == "💧 Supply Planner":
     else:
         acres, crop_name = st.session_state["manual_acres"], st.session_state["crop_selection_cw"]
 
-    avg_daily_eto = st.session_state["avg_daily_eto_cw"]
-    effective_rain_weekly = st.session_state["effective_rain_weekly_cw"]
-    efficiency_percent = st.session_state["efficiency_percent_cw"]
-    source_capacity_lph = st.session_state["c_source_cap"]
-    days_to_apply = st.session_state["c_days_apply"]
-    water_source_type = st.session_state["c_source_type"]
+    avg_daily_eto = st.session_state.get("avg_daily_eto_cw", st.session_state["eto_value_input"])
+    effective_rain_weekly = st.session_state.get("effective_rain_weekly_cw", 0.0)
+    efficiency_percent = st.session_state.get("efficiency_percent_cw", 80)
+    source_capacity_lph = st.session_state.get("c_source_cap", 1000.0)
+    days_to_apply = st.session_state.get("c_days_apply", 7)
+    water_source_type = st.session_state.get("c_source_type", "Pump")
 
     if st.session_state["display_supply_results"]:
         try:
