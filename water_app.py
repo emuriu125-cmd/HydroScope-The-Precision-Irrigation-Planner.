@@ -1,3 +1,4 @@
+python
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -80,15 +81,25 @@ def delete_plot(plot_id):
         del st.session_state["plots_data"][plot_id]
     if st.session_state["active_plot_id"] == plot_id:
         st.session_state["active_plot_id"] = None
+        st.rerun() # Rerun immediately if the active plot is deleted
 
 def deactivate_plot():
     st.session_state["active_plot_id"] = None
+
+def clear_all_plots():
+    st.session_state["plots_data"] = {}
+    st.session_state["active_plot_id"] = None
+    st.rerun() # Rerun immediately to clear the display
+
+def navigate_to_supply_planner():
+    st.session_state["main_navigation"] = "💧 Supply Planner"
+
 
 # ----------------------------
 # SIDEBAR (Revised Order)
 # ----------------------------
 st.sidebar.title("⚙️ HydroScope Controls")
-# Use a key to manage the radio state persistently, even if the user is nudged by a button click (though buttons won't change the sidebar radio directly)
+# Use a key to manage the radio state persistently, allowing buttons to trigger page navigation
 page = st.sidebar.radio("Navigate", [
     "🌤️ Weather Guide", 
     "🌱 Crop Water Guide", 
@@ -183,7 +194,6 @@ elif page == "🌱 Crop Water Guide":
         
         selected_crop_name = active_plot['crop_type']
         default_acres = active_plot['acres']
-        # If crop type is 'Other / Custom Crop', disable the calculate button until custom data is entered (logic needed)
     else:
         st.info("No active plot selected. Using manual inputs below.")
         selected_crop_name = None
@@ -193,11 +203,9 @@ elif page == "🌱 Crop Water Guide":
         colC1, colC2 = st.columns(2)
         with colC1:
             if st.session_state.get("active_plot_id"):
-                # Display active plot details, don't allow editing here if active plot is used
                 acres = st.number_input("Acres", value=default_acres, disabled=True)
                 crop_selection = st.selectbox("Select Crop Type", options=[selected_crop_name], disabled=True)
             else:
-                # Manual inputs enabled
                 acres = st.number_input("Acres", value=default_acres, min_value=0.1, step=0.1)
                 crop_selection = st.selectbox("Select Crop Type", options=list(crop_options_detailed.keys()))
         
@@ -228,16 +236,14 @@ elif page == "🌱 Crop Water Guide":
             }
 
             st.markdown("---")
-            if st.button("Use these results in the Supply Planner"):
-                # This doesn't change the sidebar radio visually but saves the data for the next page view
-                st.session_state["main_navigation"] = "💧 Supply Planner"
-                st.rerun() # Rerun the script to jump to the supply planner page using the updated session state
+            # Button to navigate immediately to the supply planner using the saved data
+            st.button("👉 Go to Supply Planner with these results", on_click=navigate_to_supply_planner)
             
         else:
             st.warning("Please select a valid crop type or ensure custom crop data is handled.")
 
 # ----------------------------
-# 3. FARM SETUP & PLOTS (Revised with Deactivate Button)
+# 3. FARM SETUP & PLOTS (Revised with Deactivate/Clear All Buttons)
 # ----------------------------
 elif page == "🏡 Farm Setup & Plots":
     st.title("🏡 Farm Setup & Plots Management")
@@ -268,12 +274,12 @@ elif page == "🏡 Farm Setup & Plots":
     if not st.session_state["plots_data"]:
         st.info("You have no plots saved yet. Use the form above to add one.")
     else:
-        # Display existing plots with activate/delete buttons
+        st.button("🧹 Clear All Plots", on_click=clear_all_plots)
         for plot_id, plot_details in st.session_state["plots_data"].items():
             is_active = (st.session_state["active_plot_id"] == plot_id)
             status = "✅ Active" if is_active else "❌ Inactive"
             
-            col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns([2, 1, 1, 1, 1])
+            col_d1, col_d2, col_d3, col_d4, col_d5 = st.columns(5)
             col_d1.metric("Name", plot_details["name"])
             col_d2.metric("Acres", plot_details["acres"])
             col_d3.metric("Crop", plot_details["crop_type"])
@@ -290,7 +296,7 @@ elif page == "🏡 Farm Setup & Plots":
             st.markdown("---")
 
 # ----------------------------
-# 4. SUPPLY PLANNER (New page logic to use saved data)
+# 4. SUPPLY PLANNER 
 # ----------------------------
 elif page == "💧 Supply Planner":
     st.title("💧 Water Supply Planner")
