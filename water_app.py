@@ -320,5 +320,4 @@ elif page == "💳 Subscription":
 elif page == "About":
     st.title("About HydroScope")
     st.markdown("HydroScope helps farmers manage water efficiently using FAO-based crop coefficients and ETo data.")
-    st.markdown("Contact:emuriu125@gmail.com
-                        0769124686.")
+    st.markdown("Contact:emuriu125@gmail.com/0769124686.")
