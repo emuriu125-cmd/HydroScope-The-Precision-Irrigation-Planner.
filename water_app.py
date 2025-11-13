@@ -339,9 +339,11 @@ elif page == "💧 Supply Planner":
 # ----------------------------
 elif page == "subscription":
     st.title("Upgrade Your Plan")
-    st.markdown("This is where subscription details would go.")
+    st.markdown("features coming soon!!!.")
 
 # ----------------------------
 # 6. ABOUT PAGE (Placeholder)
 # ----------------------------
 elif page == "About":
+ st.title("About HydroScope")
+st.markdown("HydroScope helps farmers manage water use efficiently using FAO guidelines.")  
