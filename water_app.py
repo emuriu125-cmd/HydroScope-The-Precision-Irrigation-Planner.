@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
@@ -20,6 +19,7 @@ if "eto_value_input" not in st.session_state: st.session_state["eto_value_input"
 if "plots_data" not in st.session_state: st.session_state["plots_data"] = {} # Stores all plots
 if "active_plot_id" not in st.session_state: st.session_state["active_plot_id"] = None # Stores the ID of the currently active plot
 if "saved_supply_plan_data" not in st.session_state: st.session_state["saved_supply_plan_data"] = None # Stores temporary data for Supply Planner
+
 
 # ----------------------------
 # CROP DATA AND FUNCTIONS
@@ -72,7 +72,7 @@ def calculate_stage_based_water(acres, avg_daily_eto, effective_rain_weekly, eff
     total_water_liters = total_gross_irrigation_mm * area_sq_meters
     return total_water_liters, total_gross_irrigation_mm
 
-# Helper functions for plots
+# Helper functions for plots and navigation
 def set_active_plot(plot_id):
     st.session_state["active_plot_id"] = plot_id
 
