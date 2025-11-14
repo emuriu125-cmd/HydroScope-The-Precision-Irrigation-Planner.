@@ -161,60 +161,118 @@ if page == "🌤️ Weather Guide":
 elif page == "🌱 Crop Water Guide":
     st.title("🌱 Crop Water Guide")
     st.markdown("Enter your crop parameters here. The calculation happens in the **💧 Supply Planner**.")
-    st.session_state["avg_daily_eto_cw"] = st.session_state["eto_value_input"]
 
-    if st.session_state.get("active_plot_id") and st.session_state["active_plot_id"] in st.session_state["plots_data"]:
+    # Keep ETo in sync from other pages
+    st.session_state["avg_daily_eto_cw"] = st.session_state.get("eto_value_input", 5.0)
+
+    # Detect Active Plot
+    if (
+        st.session_state.get("active_plot_id") and 
+        st.session_state["active_plot_id"] in st.session_state["plots_data"]
+    ):
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
-        st.markdown(f"###### *Using Active Plot: {active_plot['name']} ({active_plot['acres']} acres of {active_plot['crop_type']})*")
+
+        st.markdown(
+            f"###### *Using Active Plot: {active_plot['name']} "
+            f"({active_plot['acres']} acres of {active_plot['crop_type']})*"
+        )
+
         selected_crop_name = active_plot["crop_type"]
         default_acres = active_plot["acres"]
+
+        # 🔥 FIX: force acres to match the active plot
+        st.session_state["manual_acres"] = default_acres
+
         disabled_inputs = True
+
     else:
         selected_crop_name = None
-        default_acres = 1.0
         disabled_inputs = False
 
-    # Initialize state
-    for key, val in {
-        "manual_acres": 1.0, "crop_selection_cw": list(crop_options_detailed.keys()),
-        "avg_daily_eto_cw": 5.0, "effective_rain_weekly_cw": 0.0,
-        "efficiency_percent_cw": 80, "c_source_cap": 1000.0,
-        "c_days_apply": 7, "c_source_type": "Pump"
-    }.items():
-        st.session_state.setdefault(key, val)
+        # Only apply default 1 acre when NOT using a plot
+        st.session_state.setdefault("manual_acres", 1.0)
 
-    # 2x2 Grid layout (Row 1)
+    # Initialize other session state defaults (safe)
+    defaults = {
+        "crop_selection_cw": list(crop_options_detailed.keys())[0],
+        "avg_daily_eto_cw": st.session_state["avg_daily_eto_cw"],
+        "effective_rain_weekly_cw": 0.0,
+        "efficiency_percent_cw": 80,
+        "c_source_cap": 1000.0,
+        "c_days_apply": 7,
+        "c_source_type": "Pump"
+    }
+    for k, v in defaults.items():
+        st.session_state.setdefault(k, v)
+
+    # ----------------------------
+    # 🌿 2x2 GRID — Row 1
+    # ----------------------------
     col1, col2 = st.columns(2)
+
     with col1:
         st.session_state["manual_acres"] = st.number_input(
-            "Acres", value=st.session_state["manual_acres"], min_value=0.1, step=0.1, disabled=disabled_inputs)
-        current_crop_index = list(crop_options_detailed.keys()).index(selected_crop_name) if selected_crop_name in crop_options_detailed else 0
+            "Acres",
+            value=st.session_state["manual_acres"],
+            min_value=0.1, step=0.1,
+            disabled=disabled_inputs
+        )
+
+        # Auto-select the crop
+        crop_list = list(crop_options_detailed.keys())
+        crop_index = crop_list.index(selected_crop_name) if selected_crop_name in crop_list else 0
+
         st.session_state["crop_selection_cw"] = st.selectbox(
-            "Crop Type", options=list(crop_options_detailed.keys()), index=current_crop_index, disabled=disabled_inputs)
+            "Crop Type",
+            options=crop_list,
+            index=crop_index,
+            disabled=disabled_inputs
+        )
 
     with col2:
-        st.session_state["avg_daily_eto_cw"] = st.number_input("Avg Daily ETo (mm/day)", value=st.session_state["avg_daily_eto_cw"])
-        st.session_state["effective_rain_weekly_cw"] = st.number_input("Avg Effective Rain (mm/week)", value=st.session_state["effective_rain_weekly_cw"])
+        st.session_state["avg_daily_eto_cw"] = st.number_input(
+            "Avg Daily ETo (mm/day)",
+            value=st.session_state["avg_daily_eto_cw"]
+        )
 
-    # 2x2 Grid layout (Row 2) - Items now distributed across both columns
+        st.session_state["effective_rain_weekly_cw"] = st.number_input(
+            "Avg Effective Rain (mm/week)",
+            value=st.session_state["effective_rain_weekly_cw"]
+        )
+
+    # ----------------------------
+    # 🌿 2x2 GRID — Row 2
+    # ----------------------------
     col3, col4 = st.columns(2)
-    with col3:
-        st.session_state["efficiency_percent_cw"] = st.number_input("Irrigation Efficiency (%)", value=st.session_state["efficiency_percent_cw"], min_value=1, max_value=100)
 
-    with col4: # The water source is now here, completing the 2x2 grid appearance
+    with col3:
+        st.session_state["efficiency_percent_cw"] = st.number_input(
+            "Irrigation Efficiency (%)",
+            value=st.session_state["efficiency_percent_cw"],
+            min_value=1, max_value=100
+        )
+
+    with col4:
         st.session_state["c_source_type"] = st.selectbox(
             "Water Source Type",
             options=["Tank", "Pipes", "Pump"],
-            index=["Tank", "Pipes", "Pump"].index(st.session_state["c_source_type"] or "Pump")
+            index=["Tank", "Pipes", "Pump"].index(st.session_state["c_source_type"])
         )
 
+    # ----------------------------
+    # 📱 Help Expander
+    # ----------------------------
     with st.expander("📱 Need Help Getting These Values?"):
         st.markdown("""
-        - 🌤️ **ETo:** Use [FAO ETo Calculator](https://www.fao.org/land-water/databases-and-software/eto-calculator/en/)
-        - 🌾 **Kc Values:** Try **FAO CropWat mobile app**
+        - 🌤️ **ETo:** Use *FAO ETo Calculator*
+        - 🌾 **Kc Values:** Try **FAO CropWat Mobile App**
         - ☔ **Rainfall:** Use **RainViewer** or **AccuWeather**
-        - 💧 **Efficiency:** 75–85% for drip, 60–70% for sprinkler
+        - 💧 **Efficiency:**  
+            - Drip: **75–90%**  
+            - Sprinkler: **60–70%**  
+            - Furrow: **40–60%**  
         """)
+
         
 # ----------------------------
 # 3. FARM SETUP & PLOTS
