@@ -318,54 +318,91 @@ elif page == "🏡 Farm Setup & Plots":
                 st.button("Delete", key=f"del_{plot_id}", on_click=delete_plot, args=(plot_id,))
 
 # ----------------------------
-# 4. SUPPLY PLANNER
+# 4. SUPPLY PLANNER (RESTORED VERSION)
 # ----------------------------
 elif page == "💧 Supply Planner":
     st.title("💧 Water Supply Planner")
-    st.button("🔄 Recalculate Plan", on_click=lambda: st.session_state.update(display_supply_results=True))
+    st.markdown("Plan how many hours per day you should irrigate based on your water source and crop water needs.")
 
-    # ✅ Ensure manual_acres and crop_selection_cw exist before using them
+    # Sync basic values
     st.session_state.setdefault("manual_acres", 1.0)
     st.session_state.setdefault("crop_selection_cw", "Maize")
 
-    if st.session_state.get("active_plot_id") and st.session_state["active_plot_id"] in st.session_state["plots_data"]:
+    # ----------------------------
+    # 🔹 Detect ACTIVE PLOT usage
+    # ----------------------------
+    if (
+        st.session_state.get("active_plot_id") and
+        st.session_state["active_plot_id"] in st.session_state["plots_data"]
+    ):
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
-        acres, crop_name = active_plot["acres"], active_plot["crop_type"]
-        st.markdown(f"###### Using Active Plot: {active_plot['name']}")
+        acres = active_plot["acres"]
+        crop_name = active_plot["crop_type"]
+        st.info(f"Using Active Plot: **{active_plot['name']}** ({acres} acres)")
     else:
-        acres, crop_name = st.session_state["manual_acres"], st.session_state["crop_selection_cw"]
+        acres = st.session_state["manual_acres"]
+        crop_name = st.session_state["crop_selection_cw"]
 
-    avg_daily_eto = st.session_state.get("avg_daily_eto_cw", st.session_state["eto_value_input"])
+    # Gather inputs from Crop Water Guide
+    avg_daily_eto = st.session_state.get("avg_daily_eto_cw", 5.0)
     effective_rain_weekly = st.session_state.get("effective_rain_weekly_cw", 0.0)
     efficiency_percent = st.session_state.get("efficiency_percent_cw", 80)
-    source_capacity_lph = st.session_state.get("c_source_cap", 1000.0)
-    days_to_apply = st.session_state.get("c_days_apply", 7)
     water_source_type = st.session_state.get("c_source_type", "Pump")
 
-    if st.session_state["display_supply_results"]:
-        try:
-            crop_data = crop_options_detailed.get(crop_name, {"Duration_Days": None, "Kc_Values": None})
-            if crop_data["Duration_Days"]:
-                total_water_liters, total_gross_irrigation_mm = calculate_stage_based_water(
-                    acres, avg_daily_eto, effective_rain_weekly, efficiency_percent, crop_data)
-                st.subheader("💦 Results")
-                colR1, colR2, colR3 = st.columns(3)
-                colR1.metric("Total Water Needed", f"{total_water_liters:,.0f} L")
-                colR2.metric("Gross Irrigation", f"{total_gross_irrigation_mm:.1f} mm")
-                colR3.metric("Acres", f"{acres:.1f}")
-
-                if source_capacity_lph > 0 and days_to_apply > 0:
-                    total_hours_needed = total_water_liters / source_capacity_lph
-                    hours_per_day = total_hours_needed / days_to_apply
-                    st.success(f"Run **{water_source_type}** for ~{hours_per_day:.1f} hrs/day for {days_to_apply} days.")
-            else:
-                st.warning("Invalid or missing crop data.")
-        except Exception as e:
-            st.error(f"Error during calculation: {e}")
-
-        st.button("🧹 Clear Results", on_click=clear_supply_results)
+    # Use simple crop-average Kc value
+    crop_data = crop_options_detailed.get(crop_name)
+    if crop_data:
+        kc_values = crop_data["Kc_Values"].values()
+        avg_kc = sum(kc_values) / len(kc_values)
     else:
-        st.info("Results cleared. Adjust inputs in Crop Water Guide and recalc.")
+        avg_kc = 1.0  # fallback
+
+    # ----------------------------
+    # ✨ Simple Water Calculation (old style)
+    # ----------------------------
+    # ETo * Kc = crop water mm/day
+    crop_water_mm = avg_daily_eto * avg_kc
+
+    # 1 acre = 4047 m2
+    liters_per_mm_per_acre = 4047  
+    daily_liters = crop_water_mm * liters_per_mm_per_acre * acres
+
+    # Apply effective rainfall weekly
+    rainfall_reduction = (effective_rain_weekly / 7) * liters_per_mm_per_acre * acres
+    daily_liters = max(daily_liters - rainfall_reduction, 0)
+
+    # Apply irrigation efficiency
+    daily_liters = daily_liters / (efficiency_percent / 100)
+
+    # Water source details
+    source_flow_lph = st.number_input(
+        "Water Source Flow Rate (L/hour)", 
+        value=1200.0,
+        min_value=100.0
+    )
+    days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
+
+    total_weekly_liters = daily_liters * days_to_apply
+    total_hours_needed = total_weekly_liters / source_flow_lph
+    hours_per_day = total_hours_needed / days_to_apply
+
+    # ----------------------------
+    # 🟦 Results
+    # ----------------------------
+    st.subheader("💦 Water Use Summary")
+    colA, colB, colC = st.columns(3)
+    colA.metric("Daily Crop Water Need", f"{daily_liters:,.0f} L/day")
+    colB.metric("Weekly Need", f"{total_weekly_liters:,.0f} L/week")
+    colC.metric("Avg Kc", f"{avg_kc:.2f}")
+
+    st.subheader("⚙️ Irrigation Plan")
+    st.success(
+        f"Run your **{water_source_type}** for **{hours_per_day:.1f} hours/day** "
+        f"for **{days_to_apply} days**."
+    )
+
+    st.caption("This is the simplified classic version of the planner (the one you liked).")
+
 
 # ----------------------------
 # 5. SUBSCRIPTION
