@@ -352,8 +352,6 @@ elif page == "💧 Supply Planner":
     min_value=100.0,
     key="supply_planner_flow_input"  # This unique key prevents the duplicate error
 )
-
-    )
     days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
 
     # ----------------------------
