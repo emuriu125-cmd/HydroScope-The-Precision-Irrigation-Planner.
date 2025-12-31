@@ -102,18 +102,17 @@ page = st.sidebar.radio("Navigate", [
     "💳 Subscription",
     "About"
 ], key="main_navigation")
-
- ----------------------------
+# ----------------------------
 # 1. WEATHER GUIDE
 # ----------------------------
 if page == "🌤️ Weather Guide":
     st.title("🌤️ Local Weather Data & ETo Guide")
-    st.markdown("Log your daily weather. Clicking 'Log' updates the defaults for all other calculation tabs.")
+    st.markdown("Log your daily weather. Clicking 'Log' updates defaults for other tabs.")
 
     with st.form(key='weather_form'):
         colD1, colD2, colD3, colD4 = st.columns(4)
-        # We use st.session_state.get to keep the fields populated with the LAST saved values
-        date_entry = colD1.date_input("Date", value=st.session_state.get("date_value_input", None))
+        # Use session_state.get to retrieve previously saved values as defaults
+        date_entry = colD1.date_input("Date", value=st.session_state.get("date_value_input", datetime.date.today()))
         temp_entry = colD2.number_input("Avg Temp (°C)", value=st.session_state.get("temp_value_input", 25.0))
         rain_entry = colD3.number_input("Rainfall (mm)", value=st.session_state.get("rain_value_input", 0.0))
         eto_entry = colD4.number_input("Avg ETo (mm/day)", value=st.session_state.get("eto_value_input", 5.0))
@@ -122,11 +121,11 @@ if page == "🌤️ Weather Guide":
     if log_weather_btn:
         new_entry = {"Date": date_entry, "Temperature (°C)": temp_entry, "Rainfall (mm)": rain_entry, "ETo (mm/day)": eto_entry}
         
-        # 1. Update the History Log
+        # Update history log
         st.session_state["weather_log_data"] = pd.concat(
             [st.session_state["weather_log_data"], pd.DataFrame([new_entry])], ignore_index=True)
         
-        # 2. Update Shared Session State (This sends the data to other tabs)
+        # Share values across all tabs
         st.session_state["date_value_input"] = date_entry
         st.session_state["temp_value_input"] = temp_entry
         st.session_state["rain_value_input"] = rain_entry
@@ -147,7 +146,6 @@ if page == "🌤️ Weather Guide":
         colM2.metric("Total Rain", f"{avg_rain:.1f} mm")
         colM3.metric("Avg ETo", f"{avg_eto:.1f} mm/day")
 
-        # Irrelevant "Use Avg" button removed as shared state handles logic now
         st.subheader("📋 Weather Log")
         st.table(display_weather_data.set_index("Date").sort_index())
 
@@ -155,7 +153,7 @@ if page == "🌤️ Weather Guide":
             fig1 = px.scatter(display_weather_data, x="Temperature (°C)", y="ETo (mm/day)", trendline="ols",
                               title="ETo vs Temperature")
             st.plotly_chart(fig1, use_container_width=True)
-        
+
         if st.button("🧹 Clear Weather Log"):
             st.session_state["weather_log_data"] = pd.DataFrame(columns=["Date", "Temperature (°C)", "Rainfall (mm)", "ETo (mm/day)"])
             st.rerun()
