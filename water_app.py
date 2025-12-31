@@ -347,9 +347,12 @@ elif page == "💧 Supply Planner":
 
     # Water source details (Placed outside the button for user input)
     source_flow_lph = st.number_input(
-        "Water Source Flow Rate (L/hour)", 
-        value=1200.0,
-        min_value=100.0
+    "Water Source Flow Rate (L/hour)",
+    value=1200.0,
+    min_value=100.0,
+    key="supply_planner_flow_input"  # This unique key prevents the duplicate error
+)
+
     )
     days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
 
