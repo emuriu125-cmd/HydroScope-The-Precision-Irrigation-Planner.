@@ -102,7 +102,6 @@ page = st.sidebar.radio("Navigate", [
     "💳 Subscription",
     "About"
 ], key="main_navigation")
-
 # ----------------------------
 # 1. WEATHER GUIDE
 # ----------------------------
@@ -112,18 +111,26 @@ if page == "🌤️ Weather Guide":
 
     with st.form(key='weather_form'):
         colD1, colD2, colD3, colD4 = st.columns(4)
-        date_entry = colD1.date_input("Date")
-        temp_entry = colD2.number_input("Avg Temp (°C)", value=25.0)
-        rain_entry = colD3.number_input("Rainfall (mm)", value=0.0)
-        eto_entry = colD4.number_input("Avg ETo (mm/day)", value=5.0)
+        # Use session_state to keep the inputs synchronized across tabs
+        date_entry = colD1.date_input("Date", value=st.session_state.get("date_value_input", None))
+        temp_entry = colD2.number_input("Avg Temp (°C)", value=st.session_state.get("temp_value_input", 25.0))
+        rain_entry = colD3.number_input("Rainfall (mm)", value=st.session_state.get("rain_value_input", 0.0))
+        eto_entry = colD4.number_input("Avg ETo (mm/day)", value=st.session_state.get("eto_value_input", 5.0))
         log_weather_btn = st.form_submit_button("➕ Log New Weather Data")
 
     if log_weather_btn:
         new_entry = {"Date": date_entry, "Temperature (°C)": temp_entry, "Rainfall (mm)": rain_entry, "ETo (mm/day)": eto_entry}
         st.session_state["weather_log_data"] = pd.concat(
             [st.session_state["weather_log_data"], pd.DataFrame([new_entry])], ignore_index=True)
+        
+        # --- SHARED INPUTS ---
+        # These keys will now update the values in other tabs/forms
+        st.session_state["date_value_input"] = date_entry
+        st.session_state["temp_value_input"] = temp_entry
+        st.session_state["rain_value_input"] = rain_entry
         st.session_state["eto_value_input"] = eto_entry
-        st.success("Weather data logged successfully! Defaults updated.")
+        
+        st.success("Weather data logged successfully! All inputs shared across tabs.")
 
     if not st.session_state["weather_log_data"].empty:
         display_weather_data = st.session_state["weather_log_data"].copy()
@@ -154,7 +161,11 @@ if page == "🌤️ Weather Guide":
 
         if st.button("🧹 Clear Weather Log"):
             st.session_state["weather_log_data"] = pd.DataFrame(columns=["Date", "Temperature (°C)", "Rainfall (mm)", "ETo (mm/day)"])
+            # Clear shared inputs on reset
+            for key in ["date_value_input", "temp_value_input", "rain_value_input"]:
+                if key in st.session_state: del st.session_state[key]
             st.rerun()
+
 
 # ----------------------------
 # 2. CROP WATER GUIDE
