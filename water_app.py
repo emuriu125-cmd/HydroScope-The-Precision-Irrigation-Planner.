@@ -324,26 +324,75 @@ elif page == "💧 Supply Planner":
         st.session_state["active_plot_id"] in st.session_state["plots_data"]
     ):
         active_plot = st.session_state["plots_data"][st.session_state["active_plot_id"]]
-        acres = active_plot["acres"]
+        acres = float(active_plot["acres"])
         crop_name = active_plot["crop_type"]
         st.info(f"Using Active Plot: **{active_plot['name']}** ({acres} acres)")
     else:
-        acres = st.session_state["manual_acres"]
+        acres = float(st.session_state["manual_acres"])
         crop_name = st.session_state["crop_selection_cw"]
 
     # Gather inputs from Crop Water Guide
-    avg_daily_eto = st.session_state.get("avg_daily_eto_cw", 5.0)
-    effective_rain_weekly = st.session_state.get("effective_rain_weekly_cw", 0.0)
-    efficiency_percent = st.session_state.get("efficiency_percent_cw", 80)
+    avg_daily_eto = float(st.session_state.get("avg_daily_eto_cw", 5.0))
+    effective_rain_weekly = float(st.session_state.get("effective_rain_weekly_cw", 0.0))
+    efficiency_percent = float(st.session_state.get("efficiency_percent_cw", 80))
     water_source_type = st.session_state.get("c_source_type", "Pump")
 
     # Use simple crop-average Kc value
     crop_data = crop_options_detailed.get(crop_name)
-    if crop_data:
-        kc_values = crop_data["Kc_Values"].values()
-        avg_kc = sum(kc_values) / len(kc_values)
+    if crop_data and crop_data.get("Kc_Values"):
+        kc_values = [v for v in crop_data["Kc_Values"].values() if v is not None]
+        avg_kc = sum(kc_values) / len(kc_values) if kc_values else 1.0
     else:
         avg_kc = 1.0  # fallback
+
+    # Water source details (Placed outside the button for user input)
+    source_flow_lph = st.number_input(
+        "Water Source Flow Rate (L/hour)", 
+        value=1200.0,
+        min_value=100.0
+    )
+    days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
+
+    # ----------------------------
+    # 🔘 GENERATE BUTTON (FIXED: NO AUTO-PREDICT)
+    # ----------------------------
+    if st.button("🚀 Generate Irrigation Plan"):
+        # ✨ Simple Water Calculation (old style)
+        # ETo * Kc = crop water mm/day
+        crop_water_mm = avg_daily_eto * avg_kc
+
+        # 1 acre = 4047 m2
+        liters_per_mm_per_acre = 4047  
+        daily_liters = crop_water_mm * liters_per_mm_per_acre * acres
+
+        # Apply effective rainfall weekly
+        rainfall_reduction = (effective_rain_weekly / 7) * liters_per_mm_per_acre * acres
+        daily_liters = max(daily_liters - rainfall_reduction, 0.0)
+
+        # Apply irrigation efficiency
+        daily_liters = daily_liters / (efficiency_percent / 100)
+
+        total_weekly_liters = daily_liters * days_to_apply
+        total_hours_needed = total_weekly_liters / source_flow_lph
+        hours_per_day = total_hours_needed / days_to_apply
+
+        # ----------------------------
+        # 🟦 Results
+        # ----------------------------
+        st.subheader("💦 Water Use Summary")
+        colA, colB, colC = st.columns(3)
+        colA.metric("Daily Crop Water Need", f"{daily_liters:,.0f} L/day")
+        colB.metric("Weekly Need", f"{total_weekly_liters:,.0f} L/week")
+        colC.metric("Avg Kc", f"{avg_kc:.2f}")
+
+        st.subheader("⚙️ Irrigation Plan")
+        st.success(
+            f"Run your **{water_source_type}** for **{hours_per_day:.1f} hours/day** "
+            f"for **{days_to_apply} days**."
+        )
+
+        st.caption("This is the simplified classic version of the planner.")
+
 
     # ----------------------------
     # ✨ Simple Water Calculation (old style)
