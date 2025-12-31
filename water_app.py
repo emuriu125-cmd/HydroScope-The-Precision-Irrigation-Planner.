@@ -176,9 +176,11 @@ elif page == "🌱 Crop Water Guide":
         )
         selected_crop_name = active_plot["crop_type"]
         st.session_state["manual_acres"] = active_plot["acres"]
+        disabled_inputs = True  # FIX: Defined here
     else:
         selected_crop_name = None
         st.session_state.setdefault("manual_acres", 1.0)
+        disabled_inputs = False # FIX: Defined here
 
 # Initialize other session state defaults (safe)
     defaults = {
@@ -199,12 +201,14 @@ elif page == "🌱 Crop Water Guide":
     col1, col2 = st.columns(2)
 
     with col1:
+        # Wrapped value in float() to prevent 2025 type-mismatch crashes
         st.session_state["manual_acres"] = st.number_input(
             "Acres",
-            value=st.session_state["manual_acres"],
+            value=float(st.session_state["manual_acres"]),
             min_value=0.1, step=0.1,
             disabled=disabled_inputs
         )
+
 
         # Auto-select the crop
         crop_list = list(crop_options_detailed.keys())
