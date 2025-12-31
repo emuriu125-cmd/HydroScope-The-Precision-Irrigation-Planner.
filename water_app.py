@@ -8,11 +8,13 @@ st.set_page_config(page_title="HydroScope", layout="wide")
 # ----------------------------
 # SESSION STATE INITIALIZATION
 # ----------------------------
-if "plots_data" not in st.session_state: st.session_state["plots_data"] = {}
-if "active_plot_id" not in st.session_state: st.session_state["active_plot_id"] = None
+if "has_predicted" not in st.session_state: st.session_state["has_predicted"] = False
+if "prediction_log" not in st.session_state: st.session_state["prediction_log"] = []
 if "weather_log_data" not in st.session_state:
     st.session_state["weather_log_data"] = pd.DataFrame(columns=["Date", "Temperature (°C)", "Rainfall (mm)", "ETo (mm/day)"])
 if "eto_value_input" not in st.session_state: st.session_state["eto_value_input"] = 5.0
+if "plots_data" not in st.session_state: st.session_state["plots_data"] = {}
+if "active_plot_id" not in st.session_state: st.session_state["active_plot_id"] = None
 if "manual_acres" not in st.session_state: st.session_state["manual_acres"] = 1.0
 
 # ----------------------------
@@ -36,7 +38,7 @@ def delete_plot(plot_id):
         del st.session_state["plots_data"][plot_id]
     if st.session_state["active_plot_id"] == plot_id:
         st.session_state["active_plot_id"] = None
-    st.rerun()
+    st.rerun()  # FIXED: Updated from experimental_rerun
 
 def deactivate_plot():
     st.session_state["active_plot_id"] = None
@@ -75,7 +77,6 @@ if page == "🌤️ Weather Guide":
 elif page == "🌱 Crop Water Guide":
     st.title("🌱 Crop Water Guide")
     
-    # Session State defaults for this page
     defaults = {
         "crop_selection_cw": "Maize",
         "avg_daily_eto_cw": float(st.session_state.get("eto_value_input", 5.0)),
@@ -84,18 +85,17 @@ elif page == "🌱 Crop Water Guide":
         "c_source_type": "Pump"
     }
     for k, v in defaults.items():
-        if k not in st.session_state: st.session_state[k] = v
+        st.session_state.setdefault(k, v)
 
-    # Active Plot Detection
-    active_plot_id = st.session_state.get("active_plot_id")
-    if active_plot_id and active_plot_id in st.session_state["plots_data"]:
-        active_plot = st.session_state["plots_data"][active_plot_id]
+    active_id = st.session_state.get("active_plot_id")
+    if active_id and active_id in st.session_state["plots_data"]:
+        active_plot = st.session_state["plots_data"][active_id]
         st.info(f"Using Active Plot: {active_plot['name']}")
         selected_crop_name = active_plot["crop_type"]
         st.session_state["manual_acres"] = float(active_plot["acres"])
         disabled_inputs = True
     else:
-        selected_crop_name = st.session_state["crop_selection_cw"]
+        selected_crop_name = st.session_state.get("crop_selection_cw", "Maize")
         disabled_inputs = False
 
     col1, col2 = st.columns(2)
@@ -138,8 +138,6 @@ elif page == "🏡 Farm Setup & Plots":
 # ----------------------------
 elif page == "💧 Supply Planner":
     st.title("💧 Water Supply Planner")
-    
-    # Get current context
     active_id = st.session_state.get("active_plot_id")
     if active_id and active_id in st.session_state["plots_data"]:
         p = st.session_state["plots_data"][active_id]
@@ -148,18 +146,15 @@ elif page == "💧 Supply Planner":
         acres = st.session_state.get("manual_acres", 1.0)
         crop_name = st.session_state.get("crop_selection_cw", "Maize")
 
-    avg_kc = 1.0
     crop_data = crop_options_detailed.get(crop_name)
-    if crop_data and crop_data["Kc_Values"]:
-        vals = [v for v in crop_data["Kc_Values"].values() if v is not None]
-        avg_kc = sum(vals)/len(vals) if vals else 1.0
+    vals = [v for v in crop_data["Kc_Values"].values() if v is not None] if crop_data and crop_data.get("Kc_Values") else [1.0]
+    avg_kc = sum(vals)/len(vals)
 
     daily_l = (st.session_state.get("avg_daily_eto_cw", 5.0) * avg_kc * 4047 * acres)
-    rain_reduction = (st.session_state.get("effective_rain_weekly_cw", 0.0) / 7) * 4047 * acres
-    net_daily_l = max(daily_l - rain_reduction, 0.0) / (st.session_state.get("efficiency_percent_cw", 80) / 100)
+    rain_red = (st.session_state.get("effective_rain_weekly_cw", 0.0) / 7) * 4047 * acres
+    net_daily_l = max(daily_l - rain_red, 0.0) / (st.session_state.get("efficiency_percent_cw", 80) / 100)
 
     flow = st.number_input("Flow Rate (L/hr)", value=1200.0, min_value=100.0)
     days = st.slider("Days to Apply", 1, 14, 7)
-    
-    hrs_per_day = (net_daily_l * days / flow) / days
-    st.success(f"Irrigate for {hrs_per_day:.1f} hours/day.")
+    st.success(f"Irrigate for {(net_daily_l * days / flow) / days:.1f} hours/day.")
+
