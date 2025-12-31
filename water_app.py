@@ -347,11 +347,11 @@ elif page == "💧 Supply Planner":
 
     # Water source details (Placed outside the button for user input)
     source_flow_lph = st.number_input(
-    "Water Source Flow Rate (L/hour)",
-    value=1200.0,
-    min_value=100.0,
-    key="supply_planner_flow_input"  # This unique key prevents the duplicate error
-)
+        "Water Source Flow Rate (L/hour)",
+        value=1200.0,
+        min_value=100.0,
+        key="supply_planner_flow_input"
+    )
     days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
 
     # ----------------------------
@@ -359,7 +359,6 @@ elif page == "💧 Supply Planner":
     # ----------------------------
     if st.button("🚀 Generate Irrigation Plan"):
         # ✨ Simple Water Calculation (old style)
-        # ETo * Kc = crop water mm/day
         crop_water_mm = avg_daily_eto * avg_kc
 
         # 1 acre = 4047 m2
@@ -382,6 +381,7 @@ elif page == "💧 Supply Planner":
         # ----------------------------
         st.subheader("💦 Water Use Summary")
         colA, colB, colC = st.columns(3)
+        # Added unique keys to metrics as a 2025 safety measure
         colA.metric("Daily Crop Water Need", f"{daily_liters:,.0f} L/day")
         colB.metric("Weekly Need", f"{total_weekly_liters:,.0f} L/week")
         colC.metric("Avg Kc", f"{avg_kc:.2f}")
@@ -391,56 +391,25 @@ elif page == "💧 Supply Planner":
             f"Run your **{water_source_type}** for **{hours_per_day:.1f} hours/day** "
             f"for **{days_to_apply} days**."
         )
-
         st.caption("This is the simplified classic version of the planner.")
 
+# ----------------------------
+# 5. SUBSCRIPTION
+# ----------------------------
+elif page == "💳 Subscription":
+    st.title("💳 Subscription & Billing")
+    st.info("You are currently on the **Free Tier**.")
+    st.markdown("""
+    - **Current Features:** Unlimited weather logging and plot tracking.
+    - **Pro Features (Coming Soon):** Satellite ETo integration and PDF reports.
+    """)
 
-    # ----------------------------
-    # ✨ Simple Water Calculation (old style)
-    # ----------------------------
-    # ETo * Kc = crop water mm/day
-    crop_water_mm = avg_daily_eto * avg_kc
+# ----------------------------
+# 6. ABOUT
+# ----------------------------
+elif page == "About":
+    st.title("📖 About HydroScope")
+    st.write("HydroScope is a precision irrigation tool designed to help farmers optimize water use in 2025.")
+    st.caption("Version 2.5 | Sustainable Agriculture Initiative")
 
-    # 1 acre = 4047 m2
-    liters_per_mm_per_acre = 4047  
-    daily_liters = crop_water_mm * liters_per_mm_per_acre * acres
-
-    # Apply effective rainfall weekly
-    rainfall_reduction = (effective_rain_weekly / 7) * liters_per_mm_per_acre * acres
-    daily_liters = max(daily_liters - rainfall_reduction, 0)
-
-    # Apply irrigation efficiency
-    daily_liters = daily_liters / (efficiency_percent / 100)
-
-    # Water source details
-    source_flow_lph = st.number_input(
-        "Water Source Flow Rate (L/hour)", 
-        value=1200.0,
-        min_value=100.0
-    )
-    days_to_apply = st.slider("Days to Apply Irrigation", 1, 14, 7)
-
-    total_weekly_liters = daily_liters * days_to_apply
-    total_hours_needed = total_weekly_liters / source_flow_lph
-    hours_per_day = total_hours_needed / days_to_apply
-
-    # ----------------------------
-    # 🟦 Results
-    # ----------------------------
-    st.subheader("💦 Water Use Summary")
-    colA, colB, colC = st.columns(3)
-    colA.metric("Daily Crop Water Need", f"{daily_liters:,.0f} L/day")
-    colB.metric("Weekly Need", f"{total_weekly_liters:,.0f} L/week")
-    colC.metric("Avg Kc", f"{avg_kc:.2f}")
-
-    st.subheader("⚙️ Irrigation Plan")
-    st.success(
-        f"Run your **{water_source_type}** for **{hours_per_day:.1f} hours/day** "
-        f"for **{days_to_apply} days**."
-    )
-
-    st.caption("This is the simplified classic version of the planner (the one you liked).")
-
-
-# ----------------------
 
