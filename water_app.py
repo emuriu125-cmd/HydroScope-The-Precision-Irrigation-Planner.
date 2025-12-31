@@ -107,25 +107,25 @@ page = st.sidebar.radio("Navigate", [
 # ----------------------------
 if page == "🌤️ Weather Guide":
     st.title("🌤️ Local Weather Data & ETo Guide")
-    st.markdown("Log your daily weather. Clicking 'Log' updates defaults for other tabs.")
+    st.markdown("Log your daily weather observations to track local trends. This data helps you get accurate water needs.")
 
     with st.form(key='weather_form'):
         colD1, colD2, colD3, colD4 = st.columns(4)
-        # Use session_state.get to retrieve previously saved values as defaults
+        
+        # ADDITION: Retrieve last saved values from session_state for all fields to carry over across tabs
         date_entry = colD1.date_input("Date", value=st.session_state.get("date_value_input", datetime.date.today()))
         temp_entry = colD2.number_input("Avg Temp (°C)", value=st.session_state.get("temp_value_input", 25.0))
         rain_entry = colD3.number_input("Rainfall (mm)", value=st.session_state.get("rain_value_input", 0.0))
         eto_entry = colD4.number_input("Avg ETo (mm/day)", value=st.session_state.get("eto_value_input", 5.0))
+        
         log_weather_btn = st.form_submit_button("➕ Log New Weather Data")
 
     if log_weather_btn:
         new_entry = {"Date": date_entry, "Temperature (°C)": temp_entry, "Rainfall (mm)": rain_entry, "ETo (mm/day)": eto_entry}
-        
-        # Update history log
         st.session_state["weather_log_data"] = pd.concat(
             [st.session_state["weather_log_data"], pd.DataFrame([new_entry])], ignore_index=True)
         
-        # Share values across all tabs
+        # ADDITION: Explicitly save ALL inputs to session_state so they are shared with the second tab
         st.session_state["date_value_input"] = date_entry
         st.session_state["temp_value_input"] = temp_entry
         st.session_state["rain_value_input"] = rain_entry
@@ -146,6 +146,11 @@ if page == "🌤️ Weather Guide":
         colM2.metric("Total Rain", f"{avg_rain:.1f} mm")
         colM3.metric("Avg ETo", f"{avg_eto:.1f} mm/day")
 
+        # YOUR ORIGINAL BUTTON RETAINED
+        if st.button("🚀 Use Avg ETo as Default"):
+            st.session_state["eto_value_input"] = avg_eto
+            st.info(f"Average ETo ({avg_eto:.1f}) set as default.")
+
         st.subheader("📋 Weather Log")
         st.table(display_weather_data.set_index("Date").sort_index())
 
@@ -153,10 +158,16 @@ if page == "🌤️ Weather Guide":
             fig1 = px.scatter(display_weather_data, x="Temperature (°C)", y="ETo (mm/day)", trendline="ols",
                               title="ETo vs Temperature")
             st.plotly_chart(fig1, use_container_width=True)
+        else:
+            st.info("Add more entries for trend analysis.")
 
         if st.button("🧹 Clear Weather Log"):
             st.session_state["weather_log_data"] = pd.DataFrame(columns=["Date", "Temperature (°C)", "Rainfall (mm)", "ETo (mm/day)"])
+            # Clear sharing keys so inputs reset to original defaults
+            for key in ["date_value_input", "temp_value_input", "rain_value_input", "eto_value_input"]:
+                if key in st.session_state: del st.session_state[key]
             st.rerun()
+
 
 # ----------------------------
 # 2. CROP WATER GUIDE
