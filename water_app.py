@@ -102,6 +102,7 @@ page = st.sidebar.radio("Navigate", [
     "💳 Subscription",
     "About"
 ], key="main_navigation")
+
  ----------------------------
 # 1. WEATHER GUIDE
 # ----------------------------
